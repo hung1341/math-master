@@ -1,0 +1,8 @@
+{
+  "name": "Math master",
+  "description": "Trò chơi rèn luyện toán học THCS (Lớp 2 đến Lớp 5) với 4 cấp độ từ Dễ đến Rất khó, lưu điểm số, chuỗi ngày học tập, phần thưởng và lịch sử làm bài.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
