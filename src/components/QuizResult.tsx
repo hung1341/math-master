@@ -7,16 +7,20 @@ interface QuizResultProps {
   result: QuizHistoryItem;
   records: AnswerRecord[];
   leveledUpTo: number | null;
+  claimableQuestCount?: number;
   onPlayAgain: () => void;
   onGoHome: () => void;
+  onOpenQuests?: () => void;
 }
 
 export function QuizResult({
   result,
   records,
   leveledUpTo,
+  claimableQuestCount = 0,
   onPlayAgain,
   onGoHome,
+  onOpenQuests,
 }: QuizResultProps) {
   const [showReview, setShowReview] = useState(false);
   const [filter, setFilter] = useState<'all' | 'wrong'>('all');
@@ -89,6 +93,21 @@ export function QuizResult({
               </div>
             </div>
           </div>
+
+          {claimableQuestCount > 0 && onOpenQuests && (
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-3 text-xs text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-200">
+              <span className="font-semibold">
+                Bạn có <strong>{claimableQuestCount} nhiệm vụ</strong> đánh quái vật đã hoàn thành và sẵn sàng nhận thưởng!
+              </span>
+              <button
+                type="button"
+                onClick={onOpenQuests}
+                className="rounded-md bg-emerald-600 px-3 py-1.5 font-bold text-white hover:bg-emerald-700"
+              >
+                Nhận thưởng ngay
+              </button>
+            </div>
+          )}
 
           <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
             <div className="flex flex-wrap items-center gap-2.5">
@@ -167,7 +186,9 @@ export function QuizResult({
                         )}
                         <div>
                           <div className="font-math font-bold text-slate-900 dark:text-white">
-                            Câu {item.questionId}: {item.expression} = {item.correctAnswer}
+                            {item.prompt
+                              ? `Câu ${item.questionId}: ${item.prompt} (Đáp án: ${item.correctAnswer})`
+                              : `Câu ${item.questionId}: ${item.expression} = ${item.correctAnswer}`}
                           </div>
                           <div className="text-xs text-slate-500 dark:text-slate-400">
                             {item.explanation}
@@ -184,6 +205,17 @@ export function QuizResult({
                         >
                           {item.userAnswer !== null ? `Trả lời: ${item.userAnswer}` : 'Bỏ trống'}
                         </span>
+                        {item.skillUsed && (
+                          <div className="mt-0.5 text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                            {item.skillUsed === 'bomb'
+                              ? 'Ném bom'
+                              : item.skillUsed === 'laser'
+                                ? 'Tia laze'
+                                : item.skillUsed === 'fly'
+                                  ? 'Chiêu bay'
+                                  : 'Tốc biến'}
+                          </div>
+                        )}
                       </div>
                     </div>
                   ))

@@ -1,4 +1,5 @@
 import { DAILY_HINT_LIMIT, HINT_PRICES } from '../constants/gameConfig';
+import { getDailyQuestsForWave, getMonsterQuestsForWave } from '../constants/quests';
 import type { AppStorage, PlayerProfile } from '../types/game';
 
 const STORAGE_KEY = 'math_master_6_storage_v1';
@@ -37,6 +38,13 @@ export function createNewProfile(name: string): PlayerProfile {
     totalQuestions: 0,
     autoFreeze: true,
     history: [],
+    questWave: 1,
+    questProgress: {},
+    claimedQuests: [],
+    dailyQuestDate: today,
+    dailyQuestWave: 1,
+    dailyQuestProgress: {},
+    dailyClaimedQuests: [],
   };
 }
 
@@ -51,6 +59,51 @@ export function refreshProfileDailyState(profile: PlayerProfile): PlayerProfile 
   if (updated.hintDate !== today) {
     updated.hintDate = today;
     updated.hintCount = 0;
+  }
+
+  if (!updated.questWave || updated.questWave < 1) {
+    updated.questWave = 1;
+  }
+  if (!updated.questProgress || typeof updated.questProgress !== 'object') {
+    updated.questProgress = {};
+  }
+  if (!Array.isArray(updated.claimedQuests)) {
+    updated.claimedQuests = [];
+  }
+  const currentMilestoneQuests = getMonsterQuestsForWave(updated.questWave);
+  if (
+    currentMilestoneQuests.length > 0 &&
+    currentMilestoneQuests.every((q) => updated.claimedQuests.includes(q.id))
+  ) {
+    updated.questWave += 1;
+    updated.questProgress = {};
+    updated.claimedQuests = [];
+  }
+
+  if (updated.dailyQuestDate !== today) {
+    updated.dailyQuestDate = today;
+    updated.dailyQuestWave = 1;
+    updated.dailyQuestProgress = {};
+    updated.dailyClaimedQuests = [];
+  } else {
+    if (!updated.dailyQuestWave || updated.dailyQuestWave < 1) {
+      updated.dailyQuestWave = 1;
+    }
+    if (!updated.dailyQuestProgress || typeof updated.dailyQuestProgress !== 'object') {
+      updated.dailyQuestProgress = {};
+    }
+    if (!Array.isArray(updated.dailyClaimedQuests)) {
+      updated.dailyClaimedQuests = [];
+    }
+    const currentDailyQuests = getDailyQuestsForWave(updated.dailyQuestWave);
+    if (
+      currentDailyQuests.length > 0 &&
+      currentDailyQuests.every((q) => updated.dailyClaimedQuests.includes(q.id))
+    ) {
+      updated.dailyQuestWave += 1;
+      updated.dailyQuestProgress = {};
+      updated.dailyClaimedQuests = [];
+    }
   }
 
   if (!updated.lastDate) {

@@ -29,7 +29,11 @@ export function DailyRewards({ profile, onClaimDaily }: DailyRewardsProps) {
           type="button"
           disabled={alreadyClaimed}
           onClick={onClaimDaily}
-          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-600 dark:bg-emerald-500 dark:hover:bg-emerald-600 dark:disabled:bg-slate-800 dark:disabled:text-slate-400 whitespace-nowrap"
+          className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-lg px-5 py-2.5 text-sm font-semibold text-white transition-colors whitespace-nowrap ${
+            alreadyClaimed
+              ? 'cursor-default bg-emerald-600 disabled:bg-emerald-600 disabled:text-white dark:bg-emerald-600 dark:disabled:bg-emerald-600 dark:disabled:text-white'
+              : 'bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-500 dark:hover:bg-emerald-600'
+          }`}
         >
           {alreadyClaimed ? (
             <>
@@ -54,20 +58,33 @@ export function DailyRewards({ profile, onClaimDaily }: DailyRewardsProps) {
             <div
               key={item.day}
               className={`flex flex-col justify-between rounded-lg border p-3.5 tabular-nums ${
-                isCurrent && !alreadyClaimed
-                  ? 'border-blue-600 bg-blue-50/70 dark:border-blue-500 dark:bg-blue-950/40'
-                  : isPast
-                    ? 'border-emerald-200 bg-emerald-50/50 dark:border-emerald-900 dark:bg-emerald-950/30'
+                isPast
+                  ? 'border-emerald-600 bg-emerald-600 text-white dark:border-emerald-500 dark:bg-emerald-600'
+                  : isCurrent
+                    ? 'border-blue-600 bg-blue-50/70 dark:border-blue-500 dark:bg-blue-950/40'
                     : 'border-slate-200 bg-slate-50/70 dark:border-slate-800 dark:bg-slate-800/40'
               }`}
             >
-              <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+              <div
+                className={`text-xs font-semibold ${
+                  isPast ? 'text-emerald-100' : 'text-slate-500 dark:text-slate-400'
+                }`}
+              >
                 Ngày {item.day}
               </div>
-              <div className="mt-1.5 font-display text-sm font-bold text-slate-900 dark:text-white">
+              <div
+                className={`mt-1.5 font-display text-sm font-bold ${
+                  isPast ? 'text-white' : 'text-slate-900 dark:text-white'
+                }`}
+              >
                 {formatNumber(item.amount)} {item.kind === 'money' ? 'xu' : 'kim cương'}
               </div>
-              <div className="mt-1.5 text-xs font-medium text-slate-600 dark:text-slate-400">
+              <div
+                className={`mt-1.5 inline-flex items-center gap-1 text-xs font-semibold ${
+                  isPast ? 'text-emerald-50' : 'text-slate-600 dark:text-slate-400'
+                }`}
+              >
+                {isPast && <Check className="h-3.5 w-3.5" aria-hidden="true" />}
                 {isPast ? 'Đã nhận' : isCurrent ? 'Hôm nay' : 'Sắp tới'}
               </div>
             </div>

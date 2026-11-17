@@ -1,6 +1,19 @@
 export type Grade = 2 | 3 | 4;
 
-export type Difficulty = 'Dễ' | 'Bình thường' | 'Khó' | 'Rất khó';
+export type Difficulty =
+  | 'Dễ'
+  | 'Bình thường'
+  | 'Khó'
+  | 'Rất khó'
+  | 'Không thể'
+  | 'Không thể vượt qua'
+  | 'Thảm họa'
+  | 'Ác mộng'
+  | 'Địa ngục'
+  | 'Bất khả thi'
+  | 'Thần thánh'
+  | 'Vượt giới hạn'
+  | 'Vô tận';
 
 export type QuizModeId = 'standard' | 'quick';
 
@@ -15,15 +28,37 @@ export type ActiveModal =
   | 'shop'
   | 'history'
   | 'stats'
-  | 'pledge';
+  | 'pledge'
+  | 'guide'
+  | 'quests';
 
 export type GamePhase = 'IDLE' | 'PLAYING' | 'RESULT';
 
-export type CharacterActionType = 'idle' | 'attack' | 'hit' | 'hint' | 'victory';
+export type BattleSkillId = 'bomb' | 'laser' | 'fly' | 'blink';
+
+export type BossSkillId =
+  | 'boss_meteor'
+  | 'boss_laser'
+  | 'boss_thunder'
+  | 'boss_slash';
+
+export type CharacterActionType =
+  | 'idle'
+  | 'attack'
+  | 'bomb'
+  | 'laser'
+  | 'fly'
+  | 'blink'
+  | 'dodge'
+  | 'hit'
+  | 'hint'
+  | 'victory'
+  | BossSkillId;
 
 export interface CharacterActionEvent {
   id: number;
   type: CharacterActionType;
+  missed?: boolean;
 }
 
 export type MathOperation = '+' | '-' | '×' | '÷';
@@ -31,6 +66,9 @@ export type MathOperation = '+' | '-' | '×' | '÷';
 export interface Question {
   id: number;
   expression: string;
+  prompt?: string;
+  topic?: string;
+  unit?: string;
   answer: number;
   explanation: string;
   operation: MathOperation;
@@ -39,10 +77,12 @@ export interface Question {
 export interface AnswerRecord {
   questionId: number;
   expression: string;
+  prompt?: string;
   correctAnswer: number;
   userAnswer: number | null;
   isCorrect: boolean;
   usedHint: boolean;
+  skillUsed?: BattleSkillId;
   explanation: string;
 }
 
@@ -83,6 +123,13 @@ export interface PlayerProfile {
   totalQuestions: number;
   autoFreeze: boolean;
   history: QuizHistoryItem[];
+  questWave: number;
+  questProgress: Record<string, number>;
+  claimedQuests: string[];
+  dailyQuestDate: string;
+  dailyQuestWave: number;
+  dailyQuestProgress: Record<string, number>;
+  dailyClaimedQuests: string[];
 }
 
 export interface AppStorage {

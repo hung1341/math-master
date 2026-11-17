@@ -1,5 +1,6 @@
 import {
   BarChart3,
+  BookOpen,
   ChevronDown,
   ChevronUp,
   Gift,
@@ -7,9 +8,10 @@ import {
   ScrollText,
   Settings,
   ShoppingBag,
+  Swords,
 } from 'lucide-react';
 import { useState } from 'react';
-import { DIFFICULTIES, GRADES, QUIZ_MODES } from '../constants/gameConfig';
+import { DIFFICULTIES, GRADES, QUIZ_MODES, getDifficultyConfig } from '../constants/gameConfig';
 import type {
   ActiveModal,
   Difficulty,
@@ -24,6 +26,7 @@ interface LobbyHudProps {
   selectedGrade: Grade;
   selectedDifficulty: Difficulty;
   selectedMode: QuizModeId;
+  claimableQuestCount: number;
   onChangeGrade: (grade: Grade) => void;
   onChangeDifficulty: (difficulty: Difficulty) => void;
   onChangeMode: (mode: QuizModeId) => void;
@@ -36,6 +39,7 @@ export function LobbyHud({
   selectedGrade,
   selectedDifficulty,
   selectedMode,
+  claimableQuestCount,
   onChangeGrade,
   onChangeDifficulty,
   onChangeMode,
@@ -101,37 +105,70 @@ export function LobbyHud({
         <div className="pointer-events-auto flex flex-wrap items-center gap-2">
           <button
             type="button"
-            onClick={() => onOpenModal('daily')}
-            className="inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-slate-200/90 bg-white/92 px-3 py-2 text-xs font-semibold text-slate-800 shadow-md transition-colors hover:bg-white dark:border-slate-700/90 dark:bg-slate-950/88 dark:text-slate-100 dark:hover:bg-slate-900 whitespace-nowrap"
+            onClick={() => onOpenModal('quests')}
+            className={`inline-flex min-h-10 items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-semibold shadow-md transition-colors whitespace-nowrap ${
+              claimableQuestCount > 0
+                ? 'border-red-400 bg-red-600 text-white ring-2 ring-amber-300/80 hover:bg-red-700 dark:border-red-400 dark:bg-red-600 dark:hover:bg-red-500'
+                : 'border-red-600 bg-red-600 text-white hover:bg-red-700 dark:border-red-500 dark:bg-red-600 dark:hover:bg-red-500'
+            }`}
           >
-            <Gift className="h-4 w-4 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
+            <Swords className="h-4 w-4 text-white" aria-hidden="true" />
+            <span>
+              {claimableQuestCount > 0 ? `Nhiệm vụ (${claimableQuestCount})` : 'Nhiệm vụ'}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => onOpenModal('guide')}
+            className="inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-violet-600 bg-violet-600 px-3 py-2 text-xs font-semibold text-white shadow-md transition-colors hover:bg-violet-700 dark:border-violet-500 dark:bg-violet-600 dark:hover:bg-violet-500 whitespace-nowrap"
+          >
+            <BookOpen className="h-4 w-4 text-white" aria-hidden="true" />
+            <span>Kiến thức Toán 2–4</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => onOpenModal('daily')}
+            className={`inline-flex min-h-10 items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-semibold shadow-md transition-colors whitespace-nowrap ${
+              !unclaimedDaily
+                ? 'border-emerald-600 bg-emerald-600 text-white hover:bg-emerald-700 dark:border-emerald-500 dark:bg-emerald-600 dark:hover:bg-emerald-500'
+                : 'border-slate-200/90 bg-white/92 text-slate-800 hover:bg-white dark:border-slate-700/90 dark:bg-slate-950/88 dark:text-slate-100 dark:hover:bg-slate-900'
+            }`}
+          >
+            <Gift
+              className={`h-4 w-4 ${
+                !unclaimedDaily ? 'text-white' : 'text-emerald-600 dark:text-emerald-400'
+              }`}
+              aria-hidden="true"
+            />
             <span>{unclaimedDaily ? 'Quà hôm nay' : 'Phần thưởng'}</span>
           </button>
 
           <button
             type="button"
             onClick={() => onOpenModal('shop')}
-            className="inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-slate-200/90 bg-white/92 px-3 py-2 text-xs font-semibold text-slate-800 shadow-md transition-colors hover:bg-white dark:border-slate-700/90 dark:bg-slate-950/88 dark:text-slate-100 dark:hover:bg-slate-900 whitespace-nowrap"
+            className="inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-yellow-500 bg-yellow-400 px-3 py-2 text-xs font-semibold text-slate-950 shadow-md transition-colors hover:bg-yellow-300 dark:border-yellow-400 dark:bg-yellow-400 dark:text-slate-950 dark:hover:bg-yellow-300 whitespace-nowrap"
           >
-            <ShoppingBag className="h-4 w-4 text-amber-600 dark:text-amber-400" aria-hidden="true" />
+            <ShoppingBag className="h-4 w-4 text-slate-950" aria-hidden="true" />
             <span>Cửa hàng</span>
           </button>
 
           <button
             type="button"
             onClick={() => onOpenModal('history')}
-            className="inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-slate-200/90 bg-white/92 px-3 py-2 text-xs font-semibold text-slate-800 shadow-md transition-colors hover:bg-white dark:border-slate-700/90 dark:bg-slate-950/88 dark:text-slate-100 dark:hover:bg-slate-900 whitespace-nowrap"
+            className="inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-blue-600 bg-blue-500 px-3 py-2 text-xs font-semibold text-white shadow-md transition-colors hover:bg-blue-600 dark:border-blue-400 dark:bg-blue-500 dark:hover:bg-blue-400 whitespace-nowrap"
           >
-            <ScrollText className="h-4 w-4 text-blue-600 dark:text-blue-400" aria-hidden="true" />
+            <ScrollText className="h-4 w-4 text-white" aria-hidden="true" />
             <span>Lịch sử</span>
           </button>
 
           <button
             type="button"
             onClick={() => onOpenModal('stats')}
-            className="inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-slate-200/90 bg-white/92 px-3 py-2 text-xs font-semibold text-slate-800 shadow-md transition-colors hover:bg-white dark:border-slate-700/90 dark:bg-slate-950/88 dark:text-slate-100 dark:hover:bg-slate-900 whitespace-nowrap"
+            className="inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-blue-950 bg-blue-900 px-3 py-2 text-xs font-semibold text-white shadow-md transition-colors hover:bg-blue-950 dark:border-blue-700 dark:bg-blue-900 dark:hover:bg-blue-800 whitespace-nowrap"
           >
-            <BarChart3 className="h-4 w-4 text-indigo-600 dark:text-indigo-400" aria-hidden="true" />
+            <BarChart3 className="h-4 w-4 text-white" aria-hidden="true" />
             <span>Thống kê</span>
           </button>
 
@@ -139,9 +176,9 @@ export function LobbyHud({
             type="button"
             onClick={() => onOpenModal('settings')}
             aria-label="Mở cài đặt hệ thống"
-            className="inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-slate-200/90 bg-white/92 px-3 py-2 text-xs font-semibold text-slate-800 shadow-md transition-colors hover:bg-white dark:border-slate-700/90 dark:bg-slate-950/88 dark:text-slate-100 dark:hover:bg-slate-900 whitespace-nowrap"
+            className="inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-900 shadow-md transition-colors hover:bg-slate-100 dark:border-slate-300 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-100 whitespace-nowrap"
           >
-            <Settings className="h-4 w-4" aria-hidden="true" />
+            <Settings className="h-4 w-4 text-slate-900" aria-hidden="true" />
             <span>Cài đặt</span>
           </button>
         </div>
@@ -229,24 +266,72 @@ export function LobbyHud({
               {/* Difficulty Levels (updates 3D Guardian live) */}
               <div className="md:col-span-4">
                 <span className="block text-xs font-semibold text-slate-500 dark:text-slate-400">
-                  Cấp độ Thủ vệ (Dễ → Rất khó)
+                  Cấp độ Thủ vệ (Dễ → Vô tận)
                 </span>
-                <div className="mt-1.5 grid grid-cols-2 gap-1.5">
+                <div className="mt-1.5 grid max-h-44 grid-cols-2 gap-1.5 overflow-y-auto pr-1">
                   {DIFFICULTIES.map((diff) => {
                     const active = selectedDifficulty === diff.id;
+                    const m = diff.multiplier;
+                    const isEndless = diff.id === 'Vô tận';
+
+                    let activeClasses =
+                      'border-blue-600 bg-blue-600 text-white dark:border-blue-500 dark:bg-blue-500';
+                    let idleClasses =
+                      'border-slate-200 bg-slate-50 text-slate-800 hover:bg-slate-100 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800';
+
+                    if (m === 5) {
+                      activeClasses = 'border-rose-600 bg-rose-600 text-white';
+                      idleClasses =
+                        'border-rose-300/90 bg-rose-50/80 text-rose-900 hover:bg-rose-100/80 dark:border-rose-900/80 dark:bg-rose-950/40 dark:text-rose-200 dark:hover:bg-rose-950/70';
+                    } else if (m === 6) {
+                      activeClasses = 'border-purple-600 bg-purple-600 text-white';
+                      idleClasses =
+                        'border-purple-300/90 bg-purple-50/80 text-purple-950 hover:bg-purple-100/80 dark:border-purple-900/80 dark:bg-purple-950/40 dark:text-purple-200 dark:hover:bg-purple-950/70';
+                    } else if (m === 7) {
+                      activeClasses =
+                        'border-orange-600 bg-gradient-to-r from-red-600 to-orange-600 text-white';
+                      idleClasses =
+                        'border-orange-400/90 bg-gradient-to-r from-red-50 to-orange-50 text-orange-950 hover:from-red-100 hover:to-orange-100 dark:border-orange-800/80 dark:from-red-950/50 dark:to-orange-950/40 dark:text-orange-200';
+                    } else if (m === 8) {
+                      activeClasses = 'border-violet-700 bg-violet-700 text-white';
+                      idleClasses =
+                        'border-violet-300 bg-violet-50/80 text-violet-950 hover:bg-violet-100 dark:border-violet-900 dark:bg-violet-950/45 dark:text-violet-200 dark:hover:bg-violet-950/75';
+                    } else if (m === 9) {
+                      activeClasses = 'border-red-700 bg-red-700 text-white';
+                      idleClasses =
+                        'border-red-400 bg-red-50/85 text-red-950 hover:bg-red-100 dark:border-red-900 dark:bg-red-950/50 dark:text-red-200 dark:hover:bg-red-950/80';
+                    } else if (m === 10) {
+                      activeClasses = 'border-sky-700 bg-sky-700 text-white';
+                      idleClasses =
+                        'border-sky-400 bg-sky-50/85 text-sky-950 hover:bg-sky-100 dark:border-sky-900 dark:bg-sky-950/50 dark:text-sky-200 dark:hover:bg-sky-950/80';
+                    } else if (m === 11) {
+                      activeClasses = 'border-amber-600 bg-amber-600 text-white';
+                      idleClasses =
+                        'border-amber-400 bg-amber-50/90 text-amber-950 hover:bg-amber-100 dark:border-amber-800 dark:bg-amber-950/50 dark:text-amber-200 dark:hover:bg-amber-950/80';
+                    } else if (m === 12) {
+                      activeClasses = 'border-teal-600 bg-teal-600 text-white';
+                      idleClasses =
+                        'border-teal-400 bg-teal-50/85 text-teal-950 hover:bg-teal-100 dark:border-teal-800 dark:bg-teal-950/50 dark:text-teal-200 dark:hover:bg-teal-950/80';
+                    } else if (m === 13) {
+                      activeClasses =
+                        'border-fuchsia-600 bg-gradient-to-r from-indigo-700 via-fuchsia-600 to-amber-500 text-white';
+                      idleClasses =
+                        'border-fuchsia-400 bg-gradient-to-r from-indigo-50 via-fuchsia-50 to-amber-50 text-fuchsia-950 hover:from-indigo-100 hover:to-amber-100 dark:border-fuchsia-800 dark:from-indigo-950/60 dark:via-fuchsia-950/50 dark:to-amber-950/40 dark:text-fuchsia-200';
+                    }
+
                     return (
                       <button
                         key={diff.id}
                         type="button"
                         onClick={() => onChangeDifficulty(diff.id)}
-                        className={`min-h-10 rounded-lg border px-3 py-2 text-left text-xs transition-colors ${
-                          active
-                            ? 'border-blue-600 bg-blue-600 text-white dark:border-blue-500 dark:bg-blue-500'
-                            : 'border-slate-200 bg-slate-50 text-slate-800 hover:bg-slate-100 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800'
-                        }`}
+                        className={`min-h-10 rounded-lg border px-2.5 py-2 text-left text-xs transition-colors ${
+                          isEndless ? 'col-span-2 flex items-center justify-between gap-2' : ''
+                        } ${active ? activeClasses : idleClasses}`}
                       >
-                        <div className="font-bold">{diff.id}</div>
-                        <div className="text-[11px] opacity-85">{diff.rewardBonusLabel}</div>
+                        <div className="font-bold leading-tight">{diff.id}</div>
+                        <div className="mt-0.5 text-[11px] leading-tight opacity-85">
+                          {diff.rewardBonusLabel}
+                        </div>
                       </button>
                     );
                   })}
@@ -263,6 +348,12 @@ export function LobbyHud({
                     {bestForSelection
                       ? `${bestForSelection.score.toFixed(1)}/10 · ${bestForSelection.rank}`
                       : 'Chưa có kỷ lục'}
+                  </div>
+                  <div className="mt-1 text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                    Vũ khí Thủ vệ:{' '}
+                    <span className="font-semibold text-slate-700 dark:text-slate-200">
+                      {getDifficultyConfig(selectedDifficulty).bossWeapon}
+                    </span>
                   </div>
                 </div>
 

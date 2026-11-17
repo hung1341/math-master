@@ -4,7 +4,9 @@ import { DailyRewards } from './components/DailyRewards';
 import { GameModalShell } from './components/GameModalShell';
 import { HintShop } from './components/HintShop';
 import { HistoryView } from './components/HistoryView';
+import { KnowledgeHandbook } from './components/KnowledgeHandbook';
 import { LobbyHud } from './components/LobbyHud';
+import { QuestsModal } from './components/QuestsModal';
 import { QuizPlay } from './components/QuizPlay';
 import { QuizResult } from './components/QuizResult';
 import { StatsView } from './components/StatsView';
@@ -15,7 +17,15 @@ import {
   DAILY_REWARDS,
   QUIZ_MODES,
   evaluateQuizRank,
+  formatTimeLimitLabel,
+  getQuizDurationSeconds,
 } from './constants/gameConfig';
+import {
+  doesVictoryMatchQuest,
+  getDailyQuestsForWave,
+  getMonsterQuestsForWave,
+  type MonsterQuest,
+} from './constants/quests';
 import type {
   ActiveModal,
   AnswerRecord,
@@ -32,7 +42,7 @@ import type {
   QuizModeId,
 } from './types/game';
 import { generateQuestionSet } from './utils/mathGenerator';
-import { playSound } from './utils/sound';
+import { playSound, setAmbientSound, setMusicMode } from './utils/sound';
 import {
   computeLevel,
   createNewProfile,
@@ -69,6 +79,7 @@ export default function App() {
   const [leveledUpTo, setLeveledUpTo] = useState<number | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [actionEvent, setActionEvent] = useState<CharacterActionEvent | null>(null);
+  const [isHeroFlying, setIsHeroFlying] = useState(false);
 
   const activeProfile = storage.players[storage.activePlayer];
   const playerNames = Object.keys(storage.players);
@@ -80,6 +91,17 @@ export default function App() {
   useEffect(() => {
     saveAppStorage(storage);
   }, [storage]);
+
+  useEffect(() => {
+    setAmbientSound(gamePhase === 'IDLE' && storage.soundEnabled);
+    setMusicMode(
+      !storage.soundEnabled ? 'off' : gamePhase === 'PLAYING' ? 'battle' : 'lobby'
+    );
+    return () => {
+      setAmbientSound(false);
+      setMusicMode('off');
+    };
+  }, [gamePhase, storage.soundEnabled]);
 
   useEffect(() => {
     if (!toastMessage) return;
@@ -98,8 +120,8 @@ export default function App() {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [activeModal]);
 
-  const triggerCharacterAction = useCallback((type: CharacterActionType) => {
-    setActionEvent({ id: Date.now() + Math.random(), type });
+  const triggerCharacterAction = useCallback((type: CharacterActionType, missed?: boolean) => {
+    setActionEvent({ id: Date.now() + Math.random(), type, missed });
   }, []);
 
   const handleChangeTheme = (theme: 'light' | 'dark') => {
@@ -153,15 +175,17 @@ export default function App() {
       setSelectedDifficulty(difficulty);
       setSelectedMode(modeId);
       setActiveQuestions(generated);
-      setActiveTotalSeconds(modeConfig.durationMinutes * 60);
+      setActiveTotalSeconds(getQuizDurationSeconds(difficulty, modeId));
       setLastResult(null);
       setLastRecords([]);
       setLeveledUpTo(null);
+      setIsHeroFlying(false);
       setActiveModal('none');
       setGamePhase('PLAYING');
+      playSound('whistle', storage.soundEnabled);
       triggerCharacterAction('idle');
     },
-    [triggerCharacterAction]
+    [storage.soundEnabled, triggerCharacterAction]
   );
 
   const handleBuyHintInQuiz = useCallback((): { ok: boolean; error?: string } => {
@@ -232,6 +256,52 @@ export default function App() {
 
       setStorage((prev) => {
         const prof = prev.players[prev.activePlayer];
+        const todayStr = getTodayIso();
+        const questWave = Math.max(1, prof.questWave || 1);
+        const dailyQuestWave =
+          prof.dailyQuestDate === todayStr ? Math.max(1, prof.dailyQuestWave || 1) : 1;
+
+        const nextQuestProgress = { ...(prof.questProgress ?? {}) };
+        const nextDailyProgress =
+          prof.dailyQuestDate === todayStr ? { ...(prof.dailyQuestProgress ?? {}) } : {};
+        const nextDailyClaimed =
+          prof.dailyQuestDate === todayStr ? [...(prof.dailyClaimedQuests ?? [])] : [];
+
+        if (percentage >= 40) {
+          for (const quest of getMonsterQuestsForWave(questWave)) {
+            if (
+              doesVictoryMatchQuest(
+                quest,
+                selectedGrade,
+                selectedDifficulty,
+                percentage,
+                selectedMode
+              )
+            ) {
+              const cur = nextQuestProgress[quest.id] ?? 0;
+              if (cur < quest.target) {
+                nextQuestProgress[quest.id] = cur + 1;
+              }
+            }
+          }
+          for (const quest of getDailyQuestsForWave(dailyQuestWave)) {
+            if (
+              doesVictoryMatchQuest(
+                quest,
+                selectedGrade,
+                selectedDifficulty,
+                percentage,
+                selectedMode
+              )
+            ) {
+              const cur = nextDailyProgress[quest.id] ?? 0;
+              if (cur < quest.target) {
+                nextDailyProgress[quest.id] = cur + 1;
+              }
+            }
+          }
+        }
+
         return {
           ...prev,
           players: {
@@ -246,12 +316,19 @@ export default function App() {
               totalCorrect: prof.totalCorrect + correct,
               totalQuestions: prof.totalQuestions + total,
               history: [...prof.history, historyItem],
+              questWave,
+              questProgress: nextQuestProgress,
+              dailyQuestDate: todayStr,
+              dailyQuestWave,
+              dailyQuestProgress: nextDailyProgress,
+              dailyClaimedQuests: nextDailyClaimed,
             },
           },
         };
       });
 
       playSound('finish', storage.soundEnabled);
+      setIsHeroFlying(false);
       triggerCharacterAction(percentage >= 40 ? 'victory' : 'idle');
       setLastResult(historyItem);
       setLastRecords(records);
@@ -270,6 +347,7 @@ export default function App() {
   );
 
   const handleLeaveQuiz = useCallback(() => {
+    setIsHeroFlying(false);
     setGamePhase('IDLE');
     triggerCharacterAction('idle');
   }, [triggerCharacterAction]);
@@ -301,6 +379,103 @@ export default function App() {
     playSound('reward', storage.soundEnabled);
     triggerCharacterAction('hint');
     setToastMessage(`Đã nhận quà Ngày ${dayIndex + 1}: +${reward.label}.`);
+  };
+
+  const handleClaimQuest = (quest: MonsterQuest) => {
+    const todayStr = getTodayIso();
+    const isToday = activeProfile.dailyQuestDate === todayStr;
+    const progress = quest.isDaily
+      ? isToday
+        ? (activeProfile.dailyQuestProgress[quest.id] ?? 0)
+        : 0
+      : (activeProfile.questProgress[quest.id] ?? 0);
+    const alreadyClaimed = quest.isDaily
+      ? isToday && activeProfile.dailyClaimedQuests.includes(quest.id)
+      : activeProfile.claimedQuests.includes(quest.id);
+
+    if (progress < quest.target || alreadyClaimed) return;
+
+    const oldLevel = activeProfile.level;
+    const newLevel = computeLevel(activeProfile.xp + quest.rewardXp);
+    const currentMilestoneWave = Math.max(1, activeProfile.questWave || 1);
+    const currentDailyWave = isToday ? Math.max(1, activeProfile.dailyQuestWave || 1) : 1;
+
+    let unlockedWaveNotice = '';
+    if (quest.isDaily) {
+      const dailyQuests = getDailyQuestsForWave(currentDailyWave);
+      const nextClaimedIds = [
+        ...(isToday ? activeProfile.dailyClaimedQuests : []),
+        quest.id,
+      ];
+      if (dailyQuests.every((q) => nextClaimedIds.includes(q.id))) {
+        unlockedWaveNotice = ` · Đã mở khóa Nhiệm vụ Ngày Đợt ${currentDailyWave + 1}!`;
+      }
+    } else {
+      const milestoneQuests = getMonsterQuestsForWave(currentMilestoneWave);
+      const nextClaimedIds = [...activeProfile.claimedQuests, quest.id];
+      if (milestoneQuests.every((q) => nextClaimedIds.includes(q.id))) {
+        unlockedWaveNotice = ` · Đã mở khóa Săn Quái Đợt ${currentMilestoneWave + 1}!`;
+      }
+    }
+
+    setStorage((prev) => {
+      const prof = prev.players[prev.activePlayer];
+      const nextXp = prof.xp + quest.rewardXp;
+      let nextQuestWave = Math.max(1, prof.questWave || 1);
+      let nextQuestProgress = { ...prof.questProgress };
+      let nextClaimed = [...prof.claimedQuests];
+
+      const isSameDay = prof.dailyQuestDate === todayStr;
+      let nextDailyWave = isSameDay ? Math.max(1, prof.dailyQuestWave || 1) : 1;
+      let nextDailyProgress = isSameDay ? { ...prof.dailyQuestProgress } : {};
+      let nextDailyClaimed = isSameDay ? [...prof.dailyClaimedQuests] : [];
+
+      if (quest.isDaily) {
+        if (!nextDailyClaimed.includes(quest.id)) nextDailyClaimed.push(quest.id);
+        const dailyQuests = getDailyQuestsForWave(nextDailyWave);
+        if (dailyQuests.every((q) => nextDailyClaimed.includes(q.id))) {
+          nextDailyWave += 1;
+          nextDailyProgress = {};
+          nextDailyClaimed = [];
+        }
+      } else {
+        if (!nextClaimed.includes(quest.id)) nextClaimed.push(quest.id);
+        const milestoneQuests = getMonsterQuestsForWave(nextQuestWave);
+        if (milestoneQuests.every((q) => nextClaimed.includes(q.id))) {
+          nextQuestWave += 1;
+          nextQuestProgress = {};
+          nextClaimed = [];
+        }
+      }
+
+      return {
+        ...prev,
+        players: {
+          ...prev.players,
+          [prev.activePlayer]: {
+            ...prof,
+            money: prof.money + quest.rewardMoney,
+            diamonds: prof.diamonds + quest.rewardDiamonds,
+            xp: nextXp,
+            level: computeLevel(nextXp),
+            questWave: nextQuestWave,
+            questProgress: nextQuestProgress,
+            claimedQuests: nextClaimed,
+            dailyQuestDate: todayStr,
+            dailyQuestWave: nextDailyWave,
+            dailyQuestProgress: nextDailyProgress,
+            dailyClaimedQuests: nextDailyClaimed,
+          },
+        },
+      };
+    });
+
+    playSound('reward', storage.soundEnabled);
+    triggerCharacterAction('victory');
+    const levelText = newLevel > oldLevel ? ` · Lên Cấp ${newLevel}!` : '';
+    setToastMessage(
+      `Hoàn thành "${quest.title}": +${quest.rewardMoney.toLocaleString('vi-VN')} xu, +${quest.rewardDiamonds} kim cương, +${quest.rewardXp.toLocaleString('vi-VN')} XP${levelText}${unlockedWaveNotice}`
+    );
   };
 
   const handleToggleAutoFreeze = () => {
@@ -352,6 +527,21 @@ export default function App() {
   const activeModeConfig =
     QUIZ_MODES.find((m) => m.id === selectedMode) ?? QUIZ_MODES[0];
 
+  const activeDailyQuests = getDailyQuestsForWave(
+    activeProfile.dailyQuestDate === today ? Math.max(1, activeProfile.dailyQuestWave || 1) : 1
+  );
+  const activeMilestoneQuests = getMonsterQuestsForWave(Math.max(1, activeProfile.questWave || 1));
+
+  const claimableQuestCount = [...activeDailyQuests, ...activeMilestoneQuests].filter((q) => {
+    if (q.isDaily) {
+      if (activeProfile.dailyQuestDate !== today) return false;
+      const prog = activeProfile.dailyQuestProgress[q.id] ?? 0;
+      return prog >= q.target && !activeProfile.dailyClaimedQuests.includes(q.id);
+    }
+    const prog = activeProfile.questProgress[q.id] ?? 0;
+    return prog >= q.target && !activeProfile.claimedQuests.includes(q.id);
+  }).length;
+
   return (
     <div className="relative h-screen w-screen overflow-hidden bg-slate-950 text-slate-900 dark:text-slate-100">
       {/* Persistent 3D World Canvas */}
@@ -362,6 +552,7 @@ export default function App() {
         graphicsQuality={storage.graphicsQuality}
         cameraPreset={storage.cameraPreset}
         actionEvent={actionEvent}
+        isHeroFlying={gamePhase === 'PLAYING' && isHeroFlying}
       />
 
       {/* Non-blocking Game Toast */}
@@ -382,6 +573,7 @@ export default function App() {
           selectedGrade={selectedGrade}
           selectedDifficulty={selectedDifficulty}
           selectedMode={selectedMode}
+          claimableQuestCount={claimableQuestCount}
           onChangeGrade={setSelectedGrade}
           onChangeDifficulty={setSelectedDifficulty}
           onChangeMode={setSelectedMode}
@@ -405,6 +597,7 @@ export default function App() {
           onOpenSettings={() => setActiveModal('settings')}
           onTriggerAction={triggerCharacterAction}
           onPlaySound={(effect) => playSound(effect, storage.soundEnabled)}
+          onFlyingChange={setIsHeroFlying}
         />
       )}
 
@@ -413,12 +606,18 @@ export default function App() {
           result={lastResult}
           records={lastRecords}
           leveledUpTo={leveledUpTo}
+          claimableQuestCount={claimableQuestCount}
           onPlayAgain={() =>
             handleStartQuiz(selectedGrade, selectedDifficulty, selectedMode)
           }
           onGoHome={() => {
             setGamePhase('IDLE');
             triggerCharacterAction('idle');
+          }}
+          onOpenQuests={() => {
+            setGamePhase('IDLE');
+            triggerCharacterAction('idle');
+            setActiveModal('quests');
           }}
         />
       )}
@@ -489,10 +688,48 @@ export default function App() {
         </GameModalShell>
       )}
 
+      {activeModal === 'guide' && (
+        <GameModalShell
+          title="Sổ tay Kiến thức Toán 2, 3 & 4"
+          subtitle="Tổng hợp kiến thức trọng tâm Học kì 1 & Học kì 2 cho cả ba khối lớp"
+          onClose={() => setActiveModal('none')}
+          maxWidthClass="max-w-4xl"
+        >
+          <KnowledgeHandbook
+            initialGrade={selectedGrade}
+            onStartPractice={(gradeToPlay) => {
+              setSelectedGrade(gradeToPlay);
+              setActiveModal('pledge');
+            }}
+          />
+        </GameModalShell>
+      )}
+
+      {activeModal === 'quests' && (
+        <GameModalShell
+          title="Nhiệm vụ Đánh Quái Vật"
+          subtitle="Đánh bại quái vật theo cấp độ để nhận thêm xu, kim cương và kinh nghiệm"
+          onClose={() => setActiveModal('none')}
+          maxWidthClass="max-w-3xl"
+        >
+          <QuestsModal
+            profile={activeProfile}
+            onClaimQuest={handleClaimQuest}
+            onFightForQuest={(diff, grade) => {
+              if (diff) setSelectedDifficulty(diff);
+              if (grade) setSelectedGrade(grade);
+              setActiveModal('pledge');
+            }}
+          />
+        </GameModalShell>
+      )}
+
       {activeModal === 'pledge' && (
         <GameModalShell
           title="Cam kết trước trận đấu"
-          subtitle={`Lớp ${selectedGrade} · ${selectedDifficulty} · ${activeModeConfig.questionCount} câu / ${activeModeConfig.durationMinutes} phút`}
+          subtitle={`Lớp ${selectedGrade} · ${selectedDifficulty} · ${activeModeConfig.questionCount} câu / ${formatTimeLimitLabel(
+            getQuizDurationSeconds(selectedDifficulty, selectedMode)
+          )}`}
           onClose={() => setActiveModal('none')}
           maxWidthClass="max-w-md"
         >
